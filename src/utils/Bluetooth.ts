@@ -12,7 +12,10 @@ export const useBluetooth = () => {
   const [device, setDevice] = useState<any>(null);
   const [server, setServer] = useState<any>(null);
   const [service, setService] = useState<any>(null);
-  const [characteristic, setCharacteristic] = useState<any>(null);
+  const [txCharacteristic, setTxCharacteristic] = useState<any>(null);
+  const [rxCharacteristic, setRxCharacteristic] = useState<any>(null);
+  const [commands, setCommands] = useState<string[]>([]);
+  const [receiveBuffer, setReceiveBuffer] = useState<number[]>([]);
 
   const isConnected = useMemo(() => server?.connected, [server?.connected]);
 
@@ -20,56 +23,118 @@ export const useBluetooth = () => {
 
   const deviceId = useMemo(() => device?.id, [device?.id]);
 
+  const addCommand = useCallback(
+    (command: string) => setCommands((prevValue) => [...prevValue, command]),
+    []
+  );
+
   const receiveData = useCallback((event: any) => {
-    console.log(event);
+    const receivedValue = event.target.value as DataView;
+    const int8 = receivedValue.getUint8(0);
+    if (typeof int8 === "number") {
+      setReceiveBuffer((prevBuffer) => {
+        const newBuffer = [...prevBuffer, int8];
+        if (newBuffer.length === 7) {
+          const uint8Array = new Uint8Array(newBuffer);
+          console.log(new TextDecoder().decode(uint8Array));
+          return [];
+        }
+        return newBuffer;
+      });
+    }
+
+    // const value = new TextDecoder().decode(event.target.value);
+    // for (const c of value) {
+    //   if (c === "\n") {
+    //     const data = receiveBuffer.trim();
+
+    //     if (data) {
+    //       addCommand(data);
+    //     }
+    //     setReceiveBuffer("");
+    //   } else {
+    //     setReceiveBuffer((prevBuffer) => prevBuffer + c);
+    //   }
+    // }
   }, []);
 
   const getBleDevice = useCallback(async () => {
     startLoading();
+    addCommand("Requesting device...");
     const device = await typedNavigator.bluetooth
       .requestDevice({
         acceptAllDevices: true,
         optionalServices: [serviceId],
       })
       .catch(() => {
+        addCommand("Connection canceled");
+        addCommand("-------------------------------");
         stopLoading();
       });
 
     if (!!device) {
+      addCommand("Device Found");
       setDevice(device);
+      addCommand("Connecting...");
       const server = await device.gatt?.connect();
       setServer(server);
       if (!!server) {
+        addCommand("Connected successfully");
+        addCommand("Getting service...");
         const service = await server?.getPrimaryService(serviceId);
         setService(service);
         if (!!service) {
-          const characteristic = await service?.getCharacteristic(
+          addCommand("Service received successfully");
+          addCommand("Setting RX characteristic...");
+          const rxCharacteristic = await service?.getCharacteristic(
             characteristicRxId
           );
-          //   await characteristic?.startNotifications();
-          //   await characteristic?.addEventListener(
-          //     "characteristicvaluechanged",
-          //     handleTx
-          //   );
-          setCharacteristic(characteristic);
+          setRxCharacteristic(rxCharacteristic);
+          rxCharacteristic.writeValue(new ArrayBuffer(8));
+          addCommand("RX characteristic set");
+
+          addCommand("Setting TX characteristic...");
+          const txCharacteristic = await service?.getCharacteristic(
+            characteristicTxId
+          );
+          addCommand("Starting notifications...");
+          await txCharacteristic?.startNotifications();
+          addCommand("Adding command watcher...");
+          await txCharacteristic?.addEventListener(
+            "characteristicvaluechanged",
+            receiveData
+          );
+          setTxCharacteristic(txCharacteristic);
+          addCommand("TX characteristic set");
+          addCommand("Connection successful!");
+          addCommand("Waiting for commands...");
+          addCommand("-------------------------------");
         }
       }
     }
     stopLoading();
-  }, [characteristicRxId, serviceId, startLoading, stopLoading]);
+  }, [
+    addCommand,
+    characteristicRxId,
+    characteristicTxId,
+    receiveData,
+    serviceId,
+    startLoading,
+    stopLoading,
+  ]);
 
   const sendData = useCallback(
     async (data: string) => {
       startLoading();
       return new Promise((resolve, reject) => {
-        characteristic
+        rxCharacteristic
           ?.writeValue(new TextEncoder().encode(data))
           .then(resolve)
           .catch(reject)
           .finally(() => stopLoading());
       });
     },
-    [characteristic, startLoading, stopLoading]
+    [rxCharacteristic, startLoading, stopLoading]
   );
 
   return {
@@ -80,5 +145,6 @@ export const useBluetooth = () => {
     deviceName,
     deviceId,
     sendData,
+    commands,
   };
 };
