@@ -2,7 +2,7 @@
   "name": "ble-bio-reactor-control",
   "version": "0.1.0",
   "private": true,
-  "homepage": "https://karolis-vilpisauskas.github.io/ble-bio-reactor-control/",
+  "homepage": "https://karolis-vilpisauskas.github.io/ble-bio-reactor-control",
   "dependencies": {
     "@emotion/react": "^11.10.4",
     "@emotion/styled": "^11.10.4",
