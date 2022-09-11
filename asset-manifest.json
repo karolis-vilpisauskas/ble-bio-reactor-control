@@ -1,15 +1,15 @@
 {
   "files": {
-    "main.css": "/static/css/main.90f6920e.css",
-    "main.js": "/static/js/main.b95f6372.js",
-    "static/js/787.956704e9.chunk.js": "/static/js/787.956704e9.chunk.js",
-    "index.html": "/index.html",
-    "main.90f6920e.css.map": "/static/css/main.90f6920e.css.map",
-    "main.b95f6372.js.map": "/static/js/main.b95f6372.js.map",
-    "787.956704e9.chunk.js.map": "/static/js/787.956704e9.chunk.js.map"
+    "main.css": "/ble-bio-reactor-control/static/css/main.90f6920e.css",
+    "main.js": "/ble-bio-reactor-control/static/js/main.cd15ac17.js",
+    "static/js/787.956704e9.chunk.js": "/ble-bio-reactor-control/static/js/787.956704e9.chunk.js",
+    "index.html": "/ble-bio-reactor-control/index.html",
+    "main.90f6920e.css.map": "/ble-bio-reactor-control/static/css/main.90f6920e.css.map",
+    "main.cd15ac17.js.map": "/ble-bio-reactor-control/static/js/main.cd15ac17.js.map",
+    "787.956704e9.chunk.js.map": "/ble-bio-reactor-control/static/js/787.956704e9.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.90f6920e.css",
-    "static/js/main.b95f6372.js"
+    "static/js/main.cd15ac17.js"
   ]
 }
