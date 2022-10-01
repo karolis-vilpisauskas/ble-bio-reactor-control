@@ -1,0 +1,16 @@
+export enum BluetoothIndexes {
+  StartOne,
+  StartTwo,
+  Version,
+  Page,
+  Element,
+  Changed,
+  ValueOne,
+  ValueTwo,
+  ValueThree,
+  ValueFour,
+  CrcOne,
+  CrcTwo,
+  EndOne,
+  EndTwo,
+}

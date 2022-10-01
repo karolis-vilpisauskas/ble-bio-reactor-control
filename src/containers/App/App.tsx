@@ -14,7 +14,7 @@ import {
 } from "@mui/material";
 import { Container } from "@mui/system";
 import React, { useMemo, useState, useCallback } from "react";
-import { useBluetooth } from "../../utils/Bluetooth";
+import { useBluetooth, defaultDataBuffer } from "../../utils/Bluetooth";
 
 function App() {
   const {
@@ -25,6 +25,8 @@ function App() {
     loading,
     isConnected,
     commands,
+    page,
+    element,
   } = useBluetooth();
 
   const [data, setData] = useState<string>("");
@@ -47,8 +49,10 @@ function App() {
   );
 
   const handleSendData = useCallback(() => {
-    if (!data) return;
-    sendData(data);
+    if (!data) sendData(defaultDataBuffer);
+    const splitData = data.split(",");
+    const parsedData = splitData?.map((item) => parseInt(item));
+    sendData(parsedData);
   }, [data, sendData]);
 
   return (
@@ -96,6 +100,12 @@ function App() {
                           <Typography variant="subtitle1">
                             <b>ID:</b> {deviceId}
                           </Typography>
+                          <Typography variant="subtitle1">
+                            <b>Page:</b> {page}
+                          </Typography>
+                          <Typography variant="subtitle1">
+                            <b>Element:</b> {element}
+                          </Typography>
                         </>
                       ) : (
                         <Typography variant="subtitle1">
@@ -124,6 +134,7 @@ function App() {
                         onChange={handleDataChange}
                         value={data}
                         disabled={!isConnected}
+                        size="small"
                       />
                       <Button
                         variant="contained"
