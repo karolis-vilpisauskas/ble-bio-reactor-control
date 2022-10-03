@@ -1,15 +1,15 @@
 {
   "files": {
     "main.css": "/ble-bio-reactor-control/static/css/main.90f6920e.css",
-    "main.js": "/ble-bio-reactor-control/static/js/main.68549228.js",
+    "main.js": "/ble-bio-reactor-control/static/js/main.8eae6918.js",
     "static/js/787.956704e9.chunk.js": "/ble-bio-reactor-control/static/js/787.956704e9.chunk.js",
     "index.html": "/ble-bio-reactor-control/index.html",
     "main.90f6920e.css.map": "/ble-bio-reactor-control/static/css/main.90f6920e.css.map",
-    "main.68549228.js.map": "/ble-bio-reactor-control/static/js/main.68549228.js.map",
+    "main.8eae6918.js.map": "/ble-bio-reactor-control/static/js/main.8eae6918.js.map",
     "787.956704e9.chunk.js.map": "/ble-bio-reactor-control/static/js/787.956704e9.chunk.js.map"
   },
   "entrypoints": [
     "static/css/main.90f6920e.css",
-    "static/js/main.68549228.js"
+    "static/js/main.8eae6918.js"
   ]
 }
