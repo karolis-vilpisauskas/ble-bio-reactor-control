@@ -2,19 +2,28 @@ import { BluetoothConnected, Bluetooth } from "@mui/icons-material";
 import {
   AppBar,
   Box,
-  Button,
   Card,
   CardContent,
   CircularProgress,
+  FormControl,
+  FormControlLabel,
+  FormLabel,
   Grid,
   IconButton,
-  TextField,
+  Radio,
+  RadioGroup,
+  Tab,
+  Tabs,
   Toolbar,
   Typography,
 } from "@mui/material";
 import { Container } from "@mui/system";
-import React, { useMemo, useState, useCallback } from "react";
-import { useBluetooth, defaultDataBuffer } from "../../utils/Bluetooth";
+import React, { useCallback, useMemo, useState } from "react";
+import TabView from "../../components/TabView/TabView";
+import { Pages, pageTabs } from "../../constants/Pages";
+import { useBluetooth } from "../../utils/Bluetooth";
+import Home from "../Home/Home";
+import Stirrer from "../Stirrer/Stirrer";
 
 function App() {
   const {
@@ -27,9 +36,10 @@ function App() {
     commands,
     page,
     element,
+    setPage,
   } = useBluetooth();
 
-  const [data, setData] = useState<string>("");
+  const [selectedUI, setSelectedUI] = useState<number>(0);
 
   const connectButtonInner = useMemo(() => {
     if (loading) return <CircularProgress color="secondary" size={20} />;
@@ -43,17 +53,29 @@ function App() {
     [isConnected]
   );
 
-  const handleDataChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => setData(e.target.value),
+  const handleChangeUi = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      setSelectedUI(parseInt(e.target.value));
+    },
     []
   );
 
-  const handleSendData = useCallback(() => {
-    if (!data) sendData(defaultDataBuffer);
-    const splitData = data.split(",");
-    const parsedData = splitData?.map((item) => parseInt(item));
-    sendData(parsedData);
-  }, [data, sendData]);
+  const handlePageChange = (event: React.SyntheticEvent, newValue: number) => {
+    setPage(newValue);
+    sendData({
+      page: newValue,
+      element: 1,
+      value: 0,
+      changed: 0,
+    });
+  };
+
+  const a11yProps = (index: number, value: number) => {
+    return {
+      id: `tab-${index}-${value}`,
+      "aria-controls": `tabpanel-${index}-${value}`,
+    };
+  };
 
   return (
     <>
@@ -116,39 +138,67 @@ function App() {
                   </CardContent>
                 </Card>
               </Grid>
-              <Grid item xs={12} sm={4}>
-                <Card>
+              <Grid item xs={12} sm={5}>
+                <Card sx={{ marginBottom: "20px" }}>
                   <CardContent>
-                    <Typography variant="h5">Send commands</Typography>
-                    <form
-                      style={{
-                        display: "flex",
-                        flexDirection: "column",
-                        marginTop: 20,
-                      }}
-                    >
-                      <TextField
-                        variant="outlined"
-                        label="data"
-                        placeholder="Enter data to send..."
-                        onChange={handleDataChange}
-                        value={data}
-                        disabled={!isConnected}
-                        size="small"
-                      />
-                      <Button
-                        variant="contained"
-                        onClick={handleSendData}
-                        style={{ marginTop: 20 }}
-                        disabled={!isConnected}
+                    <FormControl>
+                      <FormLabel id="ui-selector-group-label">
+                        Select a UI to use:
+                      </FormLabel>
+                      <RadioGroup
+                        aria-labelledby="ui-selector-group-label"
+                        value={selectedUI}
+                        onChange={handleChangeUi}
+                        row
                       >
-                        Submit
-                      </Button>
-                    </form>
+                        <FormControlLabel
+                          value={0}
+                          control={<Radio />}
+                          label="Stirrer"
+                        />
+                        <FormControlLabel
+                          value={1}
+                          control={<Radio />}
+                          label="Pump"
+                        />
+                      </RadioGroup>
+                    </FormControl>
                   </CardContent>
                 </Card>
+                {selectedUI === 0 && <Stirrer sendData={sendData} />}
+                {selectedUI === 1 && (
+                  <Card>
+                    <CardContent>
+                      <Tabs
+                        value={page}
+                        onChange={handlePageChange}
+                        aria-label="page-tabs"
+                      >
+                        {pageTabs.map(({ label, value }, index) => (
+                          <Tab
+                            label={label}
+                            value={value}
+                            {...a11yProps(index, value)}
+                          />
+                        ))}
+                      </Tabs>
+                      <TabView value={page} index={Pages.Home}>
+                        <Home sendData={sendData} />
+                      </TabView>
+                      <TabView value={page} index={Pages.Rate}>
+                        Rate
+                      </TabView>
+                      <TabView value={page} index={Pages.Mass}>
+                        Mass
+                      </TabView>
+                      <TabView value={page} index={Pages.Option}>
+                        Options
+                      </TabView>
+                    </CardContent>
+                  </Card>
+                )}
               </Grid>
-              <Grid item xs={12} sm={5}>
+              <Grid item xs={12} sm={4}>
                 <Card>
                   <CardContent>
                     <Typography variant="h5">Received commands</Typography>
