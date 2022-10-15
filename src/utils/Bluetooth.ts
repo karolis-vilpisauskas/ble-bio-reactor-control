@@ -1,11 +1,12 @@
 import { useCallback, useMemo, useState } from "react";
-import { BluetoothIndexes } from "../types/Bluetooth";
+import { BleValues, BluetoothIndexes } from "../types/Bluetooth";
 import { useGattIdentifiers } from "./Env";
 import { useLoading } from "./Loading";
 
 // const interval = 10000;
+const typedNavigator = navigator as Navigator & { bluetooth: any };
 
-const byteLength = 14;
+const bytesToReceive = 14;
 
 const startByteOne = 255;
 const startByteTwo = 253;
@@ -34,7 +35,41 @@ export const generateCrc16 = (bytes: Uint8Array, length: number): number => {
   return crc;
 };
 
-const typedNavigator = navigator as Navigator & { bluetooth: any };
+export const getBleValue = (bytes: Uint8Array): number => {
+  const valueOne = bytes?.[BluetoothIndexes.ValueOne] << 0;
+  const valueTwo = bytes?.[BluetoothIndexes.ValueTwo] << 8;
+  const valueThree = bytes?.[BluetoothIndexes.ValueThree] << 16;
+  const valueFour = bytes?.[BluetoothIndexes.ValueFour] << 24;
+
+  const valueString = valueOne + valueTwo + valueThree + valueFour + "";
+
+  const valueNumber = valueString?.substring(0, 3);
+  const valueDecimal = valueString?.substring(3, 5);
+
+  return parseFloat(`${valueNumber}.${valueDecimal}`);
+};
+
+export const parseBleValues = (bytes: Uint8Array): BleValues => {
+  const hasCorrectLength = bytes?.byteLength === bytesToReceive;
+
+  const hasStartBytes =
+    bytes?.[BluetoothIndexes.StartOne] === startByteOne &&
+    bytes?.[BluetoothIndexes.StartTwo] === startByteTwo;
+
+  const hasEndBytes =
+    bytes?.[BluetoothIndexes.EndOne] === endByteOne &&
+    bytes?.[BluetoothIndexes.EndTwo] === endByteTwo;
+
+  return {
+    hasCorrectLength,
+    hasStartBytes,
+    hasEndBytes,
+    version: bytes?.[BluetoothIndexes.Version],
+    page: bytes?.[BluetoothIndexes.Page],
+    element: bytes?.[BluetoothIndexes.Element],
+    value: getBleValue(bytes),
+  };
+};
 
 export const useBluetooth = () => {
   const { serviceId, characteristicRxId, characteristicTxId } =
@@ -52,6 +87,7 @@ export const useBluetooth = () => {
   // Values
   const [page, setPage] = useState<number>(0);
   const [element, setElement] = useState<number>(0);
+  const [value, setValue] = useState<number>(0);
 
   const isConnected = useMemo(() => server?.connected, [server?.connected]);
 
@@ -67,22 +103,20 @@ export const useBluetooth = () => {
   const receiveData = useCallback((event: any) => {
     const receivedValue = event.target.value as DataView;
     const buffer = receivedValue.buffer;
-    const uint8Array = new Uint8Array(buffer);
-    console.log({ uint8Array });
-
-    const hasCorrectLength = buffer.byteLength === byteLength;
-
-    const hasStartBytes =
-      uint8Array[BluetoothIndexes.StartOne] === startByteOne &&
-      uint8Array[BluetoothIndexes.StartTwo] === startByteTwo;
-
-    const hasEndBytes =
-      uint8Array[BluetoothIndexes.EndOne] === endByteOne &&
-      uint8Array[BluetoothIndexes.EndTwo] === endByteTwo;
+    const bytes = new Uint8Array(buffer);
+    const {
+      hasCorrectLength,
+      hasStartBytes,
+      hasEndBytes,
+      page,
+      element,
+      value,
+    } = parseBleValues(bytes);
 
     if (hasCorrectLength && hasStartBytes && hasEndBytes) {
-      setPage(uint8Array[BluetoothIndexes.Page]);
-      setElement(uint8Array[BluetoothIndexes.Element]);
+      setPage(page);
+      setElement(element);
+      setValue(value);
     }
   }, []);
 
@@ -164,7 +198,7 @@ export const useBluetooth = () => {
       value: number;
     }) => {
       startLoading();
-      const buffer = new ArrayBuffer(byteLength);
+      const buffer = new ArrayBuffer(bytesToReceive);
       const uintArray = new Uint8Array(buffer);
 
       // Setup start bytes
@@ -187,11 +221,9 @@ export const useBluetooth = () => {
       uintArray[BluetoothIndexes.EndOne] = endByteOne;
       uintArray[BluetoothIndexes.EndTwo] = endByteTwo;
 
-      const crc = generateCrc16(uintArray, byteLength - 4);
+      const crc = generateCrc16(uintArray, bytesToReceive - 4);
       uintArray[BluetoothIndexes.CrcOne] = crc;
       uintArray[BluetoothIndexes.CrcTwo] = crc >> 8;
-
-      console.log(uintArray);
 
       return new Promise((resolve, reject) => {
         rxCharacteristic
@@ -216,5 +248,6 @@ export const useBluetooth = () => {
     page,
     element,
     setPage,
+    value,
   };
 };

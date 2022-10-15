@@ -37,6 +37,7 @@ function App() {
     page,
     element,
     setPage,
+    value,
   } = useBluetooth();
 
   const [selectedUI, setSelectedUI] = useState<number>(0);
