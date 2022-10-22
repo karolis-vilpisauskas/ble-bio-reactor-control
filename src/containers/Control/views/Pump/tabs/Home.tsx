@@ -1,23 +1,24 @@
 import {
   Box,
   Button,
+  Divider,
   FormControl,
   FormControlLabel,
   FormLabel,
   Radio,
   RadioGroup,
   TextField,
+  Typography,
 } from "@mui/material";
 import React, { useCallback, useState } from "react";
-import { Pages } from "../../constants/Pages";
+import CardHeader from "../../../../../components/CardHeader/CardHeader";
+import { Tabs } from "../../../../../constants/Tabs";
+import { useBluetoothContext } from "../../../../../utils/Bluetooth";
 
-interface Props {
-  sendData: any;
-}
+const page = Tabs.Home;
 
-const page = Pages.Home;
-
-export default function Home({ sendData }: Props) {
+export default function Home() {
+  const { sendData } = useBluetoothContext();
   const [rpm, setRpm] = useState<number>(0.0);
   const [dir, setDir] = useState<number>(0);
 
@@ -33,7 +34,7 @@ export default function Home({ sendData }: Props) {
 
   const handleFocus = useCallback(
     (element: number) => () => {
-      sendData({
+      sendData?.({
         page,
         element,
         changed: 0,
@@ -44,7 +45,7 @@ export default function Home({ sendData }: Props) {
   );
 
   const handleSetRpm = useCallback(() => {
-    sendData({
+    sendData?.({
       page,
       element: 1,
       changed: 1,
@@ -53,7 +54,7 @@ export default function Home({ sendData }: Props) {
   }, [rpm, sendData]);
 
   const handleSetDirection = useCallback(() => {
-    sendData({
+    sendData?.({
       page,
       element: 2,
       changed: 1,
@@ -63,9 +64,10 @@ export default function Home({ sendData }: Props) {
 
   return (
     <Box display="flex" flexDirection="column">
+      <CardHeader title="Home" />
       <TextField
         size="small"
-        label="rpm"
+        label="RPM"
         type="number"
         value={rpm}
         onChange={handleRpmChange}
@@ -76,7 +78,7 @@ export default function Home({ sendData }: Props) {
         variant="contained"
         onClick={handleSetRpm}
       >
-        Set Rpm
+        Set RPM
       </Button>
       <FormControl>
         <FormLabel id="direction-group-label">Direction</FormLabel>
@@ -99,6 +101,13 @@ export default function Home({ sendData }: Props) {
       >
         Set Direction
       </Button>
+      <Divider />
+      <Typography variant="h6" marginTop="10px">
+        Scales:
+      </Typography>
+      <Typography variant="h4" sx={{ fontWeight: "normal" }}>
+        0.0
+      </Typography>
     </Box>
   );
 }

@@ -1,24 +1,29 @@
-import { useCallback, useMemo, useState } from "react";
-import { BleValues, BluetoothIndexes } from "../types/Bluetooth";
+import {
+  createContext,
+  PropsWithChildren,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
+import {
+  bytesToReceiveLength,
+  endByteOne,
+  endByteTwo,
+  startByteOne,
+  startByteTwo,
+  typedNavigator,
+  deviceVersion,
+  commandDivider,
+} from "../constants/Bluetooth";
+import {
+  BleValues,
+  BluetoothIndexes,
+  BluetoothContext,
+  SendDataParams,
+} from "../types/Bluetooth";
 import { useGattIdentifiers } from "./Env";
 import { useLoading } from "./Loading";
-
-// const interval = 10000;
-const typedNavigator = navigator as Navigator & { bluetooth: any };
-
-const bytesToReceive = 14;
-
-const startByteOne = 255;
-const startByteTwo = 253;
-
-const version = 0;
-
-const endByteOne = 199;
-const endByteTwo = 200;
-
-export const defaultDataBuffer = [
-  255, 253, 0, 1, 1, 0, 0, 0, 0, 0, 0, 0, 199, 200,
-];
 
 export const generateCrc16 = (bytes: Uint8Array, length: number): number => {
   let crc = 0xffff;
@@ -35,7 +40,7 @@ export const generateCrc16 = (bytes: Uint8Array, length: number): number => {
   return crc;
 };
 
-export const getBleValue = (bytes: Uint8Array): number => {
+export const parseReceivedValue = (bytes: Uint8Array): number => {
   const valueOne = bytes?.[BluetoothIndexes.ValueOne] << 0;
   const valueTwo = bytes?.[BluetoothIndexes.ValueTwo] << 8;
   const valueThree = bytes?.[BluetoothIndexes.ValueThree] << 16;
@@ -49,8 +54,8 @@ export const getBleValue = (bytes: Uint8Array): number => {
   return parseFloat(`${valueNumber}.${valueDecimal}`);
 };
 
-export const parseBleValues = (bytes: Uint8Array): BleValues => {
-  const hasCorrectLength = bytes?.byteLength === bytesToReceive;
+export const parseBluetoothData = (bytes: Uint8Array): BleValues => {
+  const hasCorrectLength = bytes?.byteLength === bytesToReceiveLength;
 
   const hasStartBytes =
     bytes?.[BluetoothIndexes.StartOne] === startByteOne &&
@@ -67,9 +72,11 @@ export const parseBleValues = (bytes: Uint8Array): BleValues => {
     version: bytes?.[BluetoothIndexes.Version],
     page: bytes?.[BluetoothIndexes.Page],
     element: bytes?.[BluetoothIndexes.Element],
-    value: getBleValue(bytes),
+    value: parseReceivedValue(bytes),
   };
 };
+
+export const bluetoothContext = createContext<BluetoothContext>({});
 
 export const useBluetooth = () => {
   const { serviceId, characteristicRxId, characteristicTxId } =
@@ -79,8 +86,8 @@ export const useBluetooth = () => {
   // BLE
   const [device, setDevice] = useState<any>(null);
   const [server, setServer] = useState<any>(null);
-  const [, setService] = useState<any>(null);
-  const [, setTxCharacteristic] = useState<any>(null);
+  const [service, setService] = useState<any>(null);
+  const [txCharacteristic, setTxCharacteristic] = useState<any>(null);
   const [rxCharacteristic, setRxCharacteristic] = useState<any>(null);
   const [commands, setCommands] = useState<string[]>([]);
 
@@ -89,7 +96,13 @@ export const useBluetooth = () => {
   const [element, setElement] = useState<number>(0);
   const [value, setValue] = useState<number>(0);
 
-  const isConnected = useMemo(() => server?.connected, [server?.connected]);
+  const isBluetoothAvailable = !!typedNavigator?.bluetooth;
+
+  const isConnected = useMemo(
+    () =>
+      server?.connected && !!rxCharacteristic && txCharacteristic && service,
+    [rxCharacteristic, server?.connected, service, txCharacteristic]
+  );
 
   const deviceName = useMemo(() => device?.name, [device?.name]);
 
@@ -100,25 +113,49 @@ export const useBluetooth = () => {
     []
   );
 
-  const receiveData = useCallback((event: any) => {
-    const receivedValue = event.target.value as DataView;
-    const buffer = receivedValue.buffer;
-    const bytes = new Uint8Array(buffer);
-    const {
-      hasCorrectLength,
-      hasStartBytes,
-      hasEndBytes,
-      page,
-      element,
-      value,
-    } = parseBleValues(bytes);
+  const addByteCommand = useCallback(
+    ({ received, bytes }: { received?: boolean; bytes: Uint8Array }) => {
+      const label = received ? "Received:" : "Sent:";
+      addCommand(label);
+      addCommand(`${bytes}`);
+      addCommand("");
 
-    if (hasCorrectLength && hasStartBytes && hasEndBytes) {
-      setPage(page);
-      setElement(element);
-      setValue(value);
-    }
-  }, []);
+      const date = new Date();
+      const timeString = `${date.getHours() < 10 ? 0 : ""}${date.getHours()}:${
+        date.getMinutes() < 10 ? 0 : ""
+      }${date.getMinutes()}:${
+        date.getSeconds() < 10 ? 0 : ""
+      }${date.getSeconds()}`;
+      addCommand(`Added at: ${timeString}`);
+      addCommand(commandDivider);
+    },
+    [addCommand]
+  );
+
+  const receiveData = useCallback(
+    (event: any) => {
+      const receivedValue = event.target.value as DataView;
+      const buffer = receivedValue.buffer;
+      const bytes = new Uint8Array(buffer);
+      if (bytes.length === bytesToReceiveLength)
+        addByteCommand({ received: true, bytes });
+      const {
+        hasCorrectLength,
+        hasStartBytes,
+        hasEndBytes,
+        page,
+        element,
+        value,
+      } = parseBluetoothData(bytes);
+
+      if (hasCorrectLength && hasStartBytes && hasEndBytes) {
+        setPage(page);
+        setElement(element);
+        setValue(value);
+      }
+    },
+    [addByteCommand]
+  );
 
   const getBleDevice = useCallback(async () => {
     startLoading();
@@ -130,7 +167,7 @@ export const useBluetooth = () => {
       })
       .catch(() => {
         addCommand("Connection canceled");
-        addCommand("-------------------------------");
+        addCommand(commandDivider);
         stopLoading();
       });
 
@@ -169,8 +206,7 @@ export const useBluetooth = () => {
           setTxCharacteristic(txCharacteristic);
           addCommand("TX characteristic set");
           addCommand("Connection successful!");
-          addCommand("Waiting for commands...");
-          addCommand("-------------------------------");
+          addCommand(commandDivider);
         }
       }
     }
@@ -186,19 +222,9 @@ export const useBluetooth = () => {
   ]);
 
   const sendData = useCallback(
-    async ({
-      page,
-      element,
-      changed,
-      value,
-    }: {
-      page: number;
-      element: number;
-      changed: number;
-      value: number;
-    }) => {
+    async ({ page, element, changed, value }: SendDataParams) => {
       startLoading();
-      const buffer = new ArrayBuffer(bytesToReceive);
+      const buffer = new ArrayBuffer(bytesToReceiveLength);
       const uintArray = new Uint8Array(buffer);
 
       // Setup start bytes
@@ -206,7 +232,7 @@ export const useBluetooth = () => {
       uintArray[BluetoothIndexes.StartTwo] = startByteTwo;
 
       // Setup all values of int8 array
-      uintArray[BluetoothIndexes.Version] = version;
+      uintArray[BluetoothIndexes.Version] = deviceVersion;
       uintArray[BluetoothIndexes.Page] = page;
       uintArray[BluetoothIndexes.Element] = element;
       uintArray[BluetoothIndexes.Changed] = changed;
@@ -221,9 +247,11 @@ export const useBluetooth = () => {
       uintArray[BluetoothIndexes.EndOne] = endByteOne;
       uintArray[BluetoothIndexes.EndTwo] = endByteTwo;
 
-      const crc = generateCrc16(uintArray, bytesToReceive - 4);
+      const crc = generateCrc16(uintArray, bytesToReceiveLength - 4);
       uintArray[BluetoothIndexes.CrcOne] = crc;
       uintArray[BluetoothIndexes.CrcTwo] = crc >> 8;
+
+      addByteCommand({ received: false, bytes: uintArray });
 
       return new Promise((resolve, reject) => {
         rxCharacteristic
@@ -233,7 +261,7 @@ export const useBluetooth = () => {
           .finally(() => stopLoading());
       });
     },
-    [rxCharacteristic, startLoading, stopLoading]
+    [addByteCommand, rxCharacteristic, startLoading, stopLoading]
   );
 
   return {
@@ -249,5 +277,19 @@ export const useBluetooth = () => {
     element,
     setPage,
     value,
+    isBluetoothAvailable,
   };
+};
+
+export const BluetoothProvider = ({ children }: PropsWithChildren<{}>) => {
+  const value = useBluetooth();
+  return (
+    <bluetoothContext.Provider value={value}>
+      {children}
+    </bluetoothContext.Provider>
+  );
+};
+
+export const useBluetoothContext = (): BluetoothContext => {
+  return useContext(bluetoothContext);
 };

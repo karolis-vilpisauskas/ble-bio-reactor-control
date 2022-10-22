@@ -21,7 +21,26 @@ const theme = createTheme({
       disabled: "#BBBBBB",
     },
   },
-  components: {},
+  typography: {
+    h4: {
+      fontWeight: "bold",
+    },
+    h5: {
+      fontWeight: "bold",
+    },
+    h6: {
+      fontWeight: "bold",
+    },
+  },
+  components: {
+    MuiButton: {
+      styleOverrides: {
+        root: {
+          textTransform: "none",
+        },
+      },
+    },
+  },
 });
 
 export default theme;
